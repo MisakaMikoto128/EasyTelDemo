@@ -23,6 +23,9 @@ MainWindow::MainWindow(QWidget *parent)
                 mySerialPort->close();
             }
             configSerial(mySerialPort,*(portSet_iter));
+            if (mySerialPort->open(QIODevice::ReadWrite)) {
+                mySerialPort->setReadBufferSize(1);
+            }
         }
 
     });

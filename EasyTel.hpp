@@ -122,6 +122,14 @@ public:
         return send_len > 0;
     }
 
+    void parse(const std::vector<byte> &data){
+        sdp.parse(data);
+    }
+
+    void parse(const byte *data, int len){
+        sdp.parse(data,len);
+    }
+
     void SimpleDPPRecvCallback(const std::vector<byte> &revdata)
     {
         bu_uint8 cmd = revdata[0];
