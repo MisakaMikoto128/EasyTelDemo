@@ -21,12 +21,16 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+public slots:
+    void readMyCom();
+
 private:
     Ui::MainWindow *ui;
     EasyTelPoint etp;
 
     QSerialPort *mySerialPort = nullptr;
     QSet<QString> portSet;
+    QSet<QString>::iterator portSet_iter;
     void configSerial(QSerialPort * &pserial,const QString & comname);
     void checkAvailablePorts();
 };
