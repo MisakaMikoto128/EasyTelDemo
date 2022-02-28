@@ -23,15 +23,18 @@ public:
 
 public slots:
     void readMyCom();
-
+    void readFindPeer();
+signals:
+    void writeMyComS();
 private:
     Ui::MainWindow *ui;
     EasyTelPoint etp;
 
     QSerialPort *mySerialPort = nullptr;
     QSet<QString> portSet;
-    QSet<QString>::iterator portSet_iter;
-    void configSerial(QSerialPort * &pserial,const QString & comname);
+    QSet<QSerialPort*> serialSet;
+    QSetIterator<QSerialPort*> *ioAdapter;
+    void configSerial(QSerialPort * &pserial);
     void checkAvailablePorts();
 };
 #endif // MAINWINDOW_H

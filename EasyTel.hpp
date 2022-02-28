@@ -7,7 +7,8 @@
 #include <vector>
 #include <functional>
 #include <thread>
-// #define DEBUG
+#include <atomic>
+#define DEBUG
 
 #ifdef DEBUG
 #include <iostream>
@@ -36,19 +37,20 @@ public:
 
 private:
     Endian endian;
-    bool need_to_change_endian;
-    bool found_point;
+    std::atomic<bool> need_to_change_endian{false};
+    std::atomic<bool> found_point{false};
 
     std::function<void(const bu_byte *data, bu_uint32 len)> callback_list[CALLBACK_LIST_LENGTH];
     SimpleDPP sdp;
     std::thread *find_peer_thread = nullptr;
-    int thread_delay_ms = 200;
-    int find_peer_repeat = 2;
+    int thread_delay_ms = 500;
+    int find_peer_repeat = 10;
     // thread control
-    bool close_find_peer_thread = false;
+
+    std::atomic<bool> close_find_peer_thread{false};
 
     //if not find peer,invoke this method
-    std::function<void(void)> try_find_peer_faild_callback = nullptr;
+    std::function<bool(void)> try_find_peer_faild_callback = nullptr;
 public:
     EasyTelPoint()
     {
@@ -65,12 +67,7 @@ public:
     }
     ~EasyTelPoint()
     {
-        if (find_peer_thread != nullptr)
-        {
-            find_peer_thread->join();
-            delete find_peer_thread;
-        }
-        close_find_peer_thread = true;
+        stop();
     }
     /**
      * @brief
@@ -173,6 +170,7 @@ public:
 
     void SimpleDPPRevErrorCallback(SimpleDPPERROR error_code)
     {
+
     }
 
     void start()
@@ -181,39 +179,44 @@ public:
         close_find_peer_thread = false;
         find_peer_thread = new std::thread([&]()
         {
-            while (!close_find_peer_thread)
+            while (!close_find_peer_thread.load())
             {
-                LTimer tim_find_peer;
-                tim_find_peer.setReapet([&]{
-                    if(found_point){
-                        tim_find_peer.stop();
-                    }
-                    send(Q_EXIST_POINT);
-
-                },thread_delay_ms,find_peer_repeat);
-
-
-                if(found_point){
+                if(found_point.load()){
                     stop();
                 }else{
                     if(try_find_peer_faild_callback!=nullptr){
-                        try_find_peer_faild_callback();
+                        bool have_next = try_find_peer_faild_callback();
+                        if(have_next == false){
+                            stop();
+                            continue;
+                        }
                     }
                 }
 
-
+                LTimer tim_find_peer;
+                tim_find_peer.setReapet([&]{
+                    if(found_point.load()){
+                        tim_find_peer.stop();
+                    }
+                    send(Q_EXIST_POINT);
+                },thread_delay_ms,find_peer_repeat);
             }
 
-
+            cout <<"ssss"<<endl;
+            delete find_peer_thread;
 
         });
 
         find_peer_thread->detach();
+
     }
 
     void stop()
     {
-        close_find_peer_thread = true;
+        if (find_peer_thread != nullptr)
+        {
+            close_find_peer_thread.store(true);
+        }
     }
 
     bool isRunning()
@@ -230,11 +233,17 @@ public:
     {
         return sdp;
     }
-    inline void setTry_find_peer_faild_callback(const std::function<void(void)> &newTry_find_peer_faild_callback)
+    inline void setTry_find_peer_faild_callback(const std::function<bool(void)> &newTry_find_peer_faild_callback)
     {
         try_find_peer_faild_callback = newTry_find_peer_faild_callback;
     }
+    bool isFoundPoint() const
+    {
+        return found_point.load();
+    }
 };
+
+
 
 
 

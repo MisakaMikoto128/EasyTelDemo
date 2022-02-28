@@ -31,7 +31,7 @@ public:
             }
                 
         } });
-        t.detach();
+        t.join();
     }
 
     void stop()
