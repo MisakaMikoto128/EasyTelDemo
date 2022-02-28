@@ -155,7 +155,7 @@ public:
 
     void parse(const std::vector<byte> &data)
     {
-        for (int i = 0; i < data.size(); i++)
+        for (size_t i = 0; i < data.size(); i++)
         {
             parse(data[i]);
         }

@@ -15,6 +15,7 @@
 using namespace std;
 #endif
 
+#define UNUSED(x) (void)(x)
 typedef std::function<void(const bu_byte *data, bu_uint32 len)> EasyTelCmdCallback;
 
 /*
@@ -50,7 +51,7 @@ private:
     std::atomic<bool> close_find_peer_thread{false};
 
     //if not find peer,invoke this method
-    std::function<bool(void)> try_find_peer_faild_callback = nullptr;
+    std::function<bool(void)> find_peer_iteration_callback = nullptr;
 public:
     EasyTelPoint()
     {
@@ -170,7 +171,7 @@ public:
 
     void SimpleDPPRevErrorCallback(SimpleDPPERROR error_code)
     {
-
+        UNUSED(error_code);
     }
 
     void start()
@@ -184,8 +185,8 @@ public:
                 if(found_point.load()){
                     stop();
                 }else{
-                    if(try_find_peer_faild_callback!=nullptr){
-                        bool have_next = try_find_peer_faild_callback();
+                    if(find_peer_iteration_callback!=nullptr){
+                        bool have_next = find_peer_iteration_callback();
                         if(have_next == false){
                             stop();
                             continue;
@@ -202,7 +203,7 @@ public:
                 },thread_delay_ms,find_peer_repeat);
             }
 
-            cout <<"ssss"<<endl;
+
             delete find_peer_thread;
 
         });
@@ -233,9 +234,9 @@ public:
     {
         return sdp;
     }
-    inline void setTry_find_peer_faild_callback(const std::function<bool(void)> &newTry_find_peer_faild_callback)
+    inline void setFind_peer_iteration_callback(const std::function<bool(void)> &find_peer_iteration_callback)
     {
-        try_find_peer_faild_callback = newTry_find_peer_faild_callback;
+        this->find_peer_iteration_callback = find_peer_iteration_callback;
     }
     bool isFoundPoint() const
     {

@@ -26,7 +26,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
 
-    etp.setTry_find_peer_faild_callback([&]{
+    etp.setFind_peer_iteration_callback([&]{
         bool have = false;
 
         if(ioAdapter->hasNext()){
@@ -39,8 +39,8 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     QThread* check_com = QThread::create([&]{
-        this->checkAvailablePorts();
-//                portSet.insert("COM1");
+//        this->checkAvailablePorts();
+                portSet.insert("COM1");
     });
     check_com->start();
     connect(check_com,SIGNAL(finished()),this,SLOT(readFindPeer()));
@@ -64,7 +64,6 @@ MainWindow::~MainWindow()
     delete ui;
     delete ioAdapter;
     ioAdapter = nullptr;
-    delete mySerialPort;
     for(auto i = serialSet.begin();i!=serialSet.end();i++){
         delete (*i);
     }
@@ -94,9 +93,7 @@ void MainWindow::configSerial(QSerialPort *&pserial)
     pserial->setFlowControl(QSerialPort::NoFlowControl);
     //    pserial->clearError();
     //    pserial->clear();
-
     connect(pserial, SIGNAL(readyRead()), this, SLOT(readMyCom()));
-
 }
 
 
