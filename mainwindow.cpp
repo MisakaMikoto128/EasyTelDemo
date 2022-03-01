@@ -10,25 +10,11 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    etp.bindSendBuffer([&](const std::vector<byte> &senddata)
-    {
-        qDebug()<<"SendBuffer:"<<senddata.size()<<endl;
-        for(byte c : senddata){
-            qDebug()<<QString("%1").arg(c,2,16,QLatin1Char('0')).toUpper();
-        }
-        qDebug()<<endl;
-        QSerialPort *port = mySerialPort;
-        if(port!=nullptr && port->isOpen() && port->isWritable()){
-            port->write(senddata.data(),senddata.size());
-            port->flush();
-            port->waitForBytesWritten(500);
-        }
-    });
+    etp.bindSendBuffer(this,&MainWindow::SendBuffer);
 
 
     etp.setFind_peer_iteration_callback([&]{
         bool have = false;
-
         if(ioAdapter->hasNext()){
             mySerialPort = ioAdapter->next();
             have = true;
@@ -39,11 +25,11 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     QThread* check_com = QThread::create([&]{
-//        this->checkAvailablePorts();
-                portSet.insert("COM1");
+        //        this->checkAvailablePorts();
+        portSet.insert("COM1");
     });
     check_com->start();
-    connect(check_com,SIGNAL(finished()),this,SLOT(readFindPeer()));
+    connect(check_com,SIGNAL(finished()),this,SLOT(initFindPeer()));
 
     QThread* debug_isFound = QThread::create([&]{
         while(!etp.isFoundPoint()){}
@@ -104,7 +90,7 @@ void MainWindow::readMyCom()
     etp.parse(temp.data(),temp.size());
 }
 
-void MainWindow::readFindPeer()
+void MainWindow::initFindPeer()
 {
     QSetIterator<QString> *iter = new QSetIterator<QString>(portSet);
 
@@ -120,5 +106,18 @@ void MainWindow::readFindPeer()
     ioAdapter = new QSetIterator<QSerialPort*>(serialSet);
     etp.start();
 
+}
+
+void MainWindow::SendBuffer(const QByteArray &senddata)
+{
+
+    qDebug()<<"send data:"<<senddata<<endl;
+
+    QSerialPort *port = mySerialPort;
+    if(port!=nullptr && port->isOpen() && port->isWritable()){
+        port->write(senddata);
+        port->flush();
+        port->waitForBytesWritten(500);
+    }
 }
 

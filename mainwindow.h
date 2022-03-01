@@ -23,7 +23,8 @@ public:
 
 public slots:
     void readMyCom();
-    void readFindPeer();
+    void initFindPeer();
+    void SendBuffer(const QByteArray &senddata);
 signals:
     void writeMyComS();
 private:

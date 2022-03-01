@@ -24,8 +24,9 @@ Q_开头，表示询问命令
 R_开头，表示回复命令
 */
 
-class EasyTelPoint
+class EasyTelPoint : public QObject
 {
+    Q_OBJECT
 
 public:
     static constexpr bu_uint8 Q_EXIST_POINT = 0x00;
@@ -49,9 +50,9 @@ private:
     // thread control
 
     std::atomic<bool> close_find_peer_thread{false};
-
-    //if not find peer,invoke this method
-    std::function<bool(void)> find_peer_iteration_callback = nullptr;
+signals:
+    //before find peer,invoke this method to init resources.
+    bool find_peer_iteration_callback(void);
 public:
     EasyTelPoint()
     {
@@ -63,8 +64,8 @@ public:
         {
             callback_list[i] = nullptr;
         }
-        sdp.bindRecvCallback(this, &EasyTelPoint::SimpleDPPRecvCallback);
-        sdp.bindRevErrorCallback(this, &EasyTelPoint::SimpleDPPRevErrorCallback);
+        connect(&sdp,&SimpleDPP::RecvCallback,this,&EasyTelPoint::SimpleDPPRecvCallback);
+        connect(&sdp,&SimpleDPP::RevErrorCallback,this,&EasyTelPoint::SimpleDPPRevErrorCallback);
     }
     ~EasyTelPoint()
     {
@@ -104,14 +105,14 @@ public:
      * @param func T::func
      */
     template <class T>
-    void bindSendBuffer(T *obj, void (T::*func)(const std::vector<byte> &senddata))
+    void bindSendBuffer(T *obj, void (T::*func)(const QByteArray &senddata))
     {
-        sdp.bindSendBuffer(obj, func);
+        connect(&sdp,&SimpleDPP::SendBuffer,obj,func);
     }
 
-    void bindSendBuffer(std::function<void(const std::vector<byte> &senddata)> SendBuffer)
+    void bindSendBuffer(std::function<void(const QByteArray &senddata)> SendBuffer)
     {
-        sdp.bindSendBuffer(SendBuffer);
+        connect(&sdp,&SimpleDPP::SendBuffer,SendBuffer);
     }
 
     bool send(bu_byte cmd, const char *data = nullptr, bu_uint32 len = 0)
@@ -120,58 +121,12 @@ public:
         return send_len > 0;
     }
 
-    void parse(const std::vector<byte> &data){
+    void parse(const QByteArray & data){
         sdp.parse(data);
     }
 
-    void parse(const byte *data, int len){
+    void parse(const sdp_byte *data, int len){
         sdp.parse(data,len);
-    }
-
-    void SimpleDPPRecvCallback(const std::vector<byte> &revdata)
-    {
-        bu_uint8 cmd = revdata[0];
-
-        switch (cmd)
-        {
-        case Q_EXIST_POINT:
-        {
-            char endian_ = static_cast<char>(endian);
-            send(R_EXIST_POINT, &endian_, sizeof(endian_));
-        }
-
-            break;
-        case R_EXIST_POINT:
-        {
-            Endian peer_endian = (Endian)revdata[1];
-            need_to_change_endian = (peer_endian != endian);
-            found_point = true;
-        }
-
-            break;
-        case Q_ENDIAN:
-            send(R_ENDIAN);
-            break;
-        case R_ENDIAN:
-        {
-            Endian peer_endian = (Endian)revdata[1];
-            need_to_change_endian = (peer_endian != endian);
-        }
-
-            break;
-        default:
-            if (callback_list[cmd] != nullptr && cmd < CALLBACK_LIST_LENGTH)
-            {
-                callback_list[cmd]((bu_byte *)revdata.data() + 1, revdata.size() - 1);
-            }
-            break;
-            break;
-        }
-    }
-
-    void SimpleDPPRevErrorCallback(SimpleDPPERROR error_code)
-    {
-        UNUSED(error_code);
     }
 
     void start()
@@ -185,12 +140,12 @@ public:
                 if(found_point.load()){
                     stop();
                 }else{
-                    if(find_peer_iteration_callback!=nullptr){
-                        bool have_next = find_peer_iteration_callback();
+
+                        bool have_next = emit find_peer_iteration_callback();
                         if(have_next == false){
                             stop();
                             continue;
-                        }
+
                     }
                 }
 
@@ -236,11 +191,58 @@ public:
     }
     inline void setFind_peer_iteration_callback(const std::function<bool(void)> &find_peer_iteration_callback)
     {
-        this->find_peer_iteration_callback = find_peer_iteration_callback;
+        connect(this,&EasyTelPoint::find_peer_iteration_callback,find_peer_iteration_callback);
     }
     bool isFoundPoint() const
     {
         return found_point.load();
+    }
+
+public slots:
+    void SimpleDPPRecvCallback(const QByteArray &revdata)
+    {
+        bu_uint8 cmd = revdata[0];
+
+        switch (cmd)
+        {
+        case Q_EXIST_POINT:
+        {
+            char endian_ = static_cast<char>(endian);
+            send(R_EXIST_POINT, &endian_, sizeof(endian_));
+        }
+
+            break;
+        case R_EXIST_POINT:
+        {
+            Endian peer_endian = (Endian)revdata[1];
+            need_to_change_endian = (peer_endian != endian);
+            found_point = true;
+        }
+
+            break;
+        case Q_ENDIAN:
+            send(R_ENDIAN);
+            break;
+        case R_ENDIAN:
+        {
+            Endian peer_endian = (Endian)revdata[1];
+            need_to_change_endian = (peer_endian != endian);
+        }
+
+            break;
+        default:
+            if (callback_list[cmd] != nullptr && cmd < CALLBACK_LIST_LENGTH)
+            {
+                callback_list[cmd]((bu_byte *)revdata.data() + 1, revdata.size() - 1);
+            }
+            break;
+            break;
+        }
+    }
+
+    void SimpleDPPRevErrorCallback(SimpleDPPERROR error_code)
+    {
+        UNUSED(error_code);
     }
 };
 
